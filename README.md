@@ -76,7 +76,3 @@ python training/train.py
 ```bash
 python generate.py --prompt "I'm not afraid to" --temperature 0.8 --top_k 40
 ```
-
-## License
-
-MIT
