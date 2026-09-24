@@ -1,0 +1,40 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual environment
+venv/
+env/
+.venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Jupyter
+.ipynb_checkpoints/
+
+# ML artifacts
+checkpoints/
+*.pt
+*.pth
+wandb/
+runs/
+
+# Data (keep processed, ignore raw downloads)
+data/raw/*.csv
+data/raw/*.json
+
+# Gradio
+flagged/
