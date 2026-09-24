@@ -1,4 +1,4 @@
- EmGPT
+## EmGPT
 
 A ~10M parameter GPT language model built **from scratch** in pure PyTorch, trained on Eminem lyrics.
 
