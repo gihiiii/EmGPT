@@ -1,8 +1,8 @@
-# 🧠 MiniGPT-Em
+ EmGPT
 
 A ~10M parameter GPT language model built **from scratch** in pure PyTorch, trained on Eminem lyrics.
 
-Feed it a prompt like *"I'm not afraid to..."* and watch it spit bars. 🎤
+Feed it a prompt like *"I'm not afraid to..."* and watch it spit bars.
 
 ## Why?
 
