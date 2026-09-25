@@ -6,7 +6,7 @@ Feed it a prompt like *"I'm not afraid to..."* and watch it spit bars.
 
 ## Why?
 
-To deeply understand how large language models work — not by using a library, but by building every component from the ground up:
+Just wanted to learn how LLMs work under the hood.
 
 - **BPE Tokenizer** — byte-pair encoding, implemented from scratch
 - **Transformer Architecture** — multi-head causal self-attention, feed-forward networks, residual connections, layer norm
