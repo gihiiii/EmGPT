@@ -210,7 +210,7 @@ def train():
     latest_ckpt_path = CHECKPOINTS_DIR / "latest_model.pt"
     if args.resume and latest_ckpt_path.exists():
         print(f"[Training] Resuming from checkpoint: {latest_ckpt_path}")
-        checkpoint = torch.load(latest_ckpt_path, map_location=device)
+        checkpoint = torch.load(latest_ckpt_path, map_location=device, weights_only=False)
         model.load_state_dict(checkpoint["model"])
         optimizer.load_state_dict(checkpoint["optimizer"])
         start_iter = checkpoint.get("iter", 0)

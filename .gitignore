@@ -32,9 +32,10 @@ checkpoints/
 wandb/
 runs/
 
-# Data (keep processed, ignore raw downloads)
+# Data (keep processed, ignore raw downloads and cached binary tokens)
 data/raw/*.csv
 data/raw/*.json
+*.bin
 
 # Gradio
 flagged/
