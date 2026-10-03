@@ -59,36 +59,17 @@ def get_lr(step: int, warmup_iters: int, max_iters: int, max_lr: float, min_lr: 
 def configure_optimizers(model: MiniGPT, weight_decay: float, learning_rate: float, betas: tuple[float, float], device_type: str):
     """
     Split parameters into decayed and non-decayed groups.
-    2D parameters (weights of linear layers and embeddings) are decayed.
-    1D parameters (biases and layernorms) are not decayed.
+    All 2D+ tensors (matmuls, embeddings) are weight decayed.
+    All 1D tensors (biases, layernorms) are not decayed.
+    Handles weight tying seamlessly without duplicate parameter errors.
     """
-    decay = set()
-    no_decay = set()
-    whitelist_weight_modules = (nn.Linear, nn.Embedding)
-    blacklist_weight_modules = (nn.LayerNorm,)
-
-    for mn, m in model.named_modules():
-        for pn, p in m.named_parameters():
-            fpn = f"{mn}.{pn}" if mn else pn
-            if pn.endswith("bias"):
-                no_decay.add(fpn)
-            elif pn.endswith("weight") and isinstance(m, whitelist_weight_modules):
-                decay.add(fpn)
-            elif pn.endswith("weight") and isinstance(m, blacklist_weight_modules):
-                no_decay.add(fpn)
-
-    # Validate all parameters are assigned
-    param_dict = {pn: p for pn, p in model.named_parameters()}
-    inter_params = decay & no_decay
-    union_params = decay | no_decay
-    assert len(inter_params) == 0, f"Parameters {inter_params} in both decay and no-decay groups!"
-    assert (
-        len(param_dict.keys() - union_params) == 0
-    ), f"Parameters {param_dict.keys() - union_params} not accounted for in optimizer groups!"
+    param_dict = {pn: p for pn, p in model.named_parameters() if p.requires_grad}
+    decay_params = [p for n, p in param_dict.items() if p.dim() >= 2]
+    nodecay_params = [p for n, p in param_dict.items() if p.dim() < 2]
 
     optim_groups = [
-        {"params": [param_dict[pn] for pn in sorted(list(decay))], "weight_decay": weight_decay},
-        {"params": [param_dict[pn] for pn in sorted(list(no_decay))], "weight_decay": 0.0},
+        {"params": decay_params, "weight_decay": weight_decay},
+        {"params": nodecay_params, "weight_decay": 0.0},
     ]
 
     use_fused = (device_type == "cuda") and ("fused" in torch.optim.AdamW.__init__.__code__.co_varnames)
@@ -195,9 +176,9 @@ def train():
         tie_weights=True,
     )
 
-    print("\n" + "=" * 55)
-    print("🧠 MiniGPT-Em Architecture Specification")
-    print("=" * 55)
+    print("=======================================================")
+    print("MiniGPT-Em Architecture Specification")
+    print("=======================================================")
     print(f"d_model:        {model_config.d_model}")
     print(f"n_heads:        {model_config.n_heads} (head dimension: {model_config.d_model // model_config.n_heads})")
     print(f"n_layers:       {model_config.n_layers}")
@@ -257,7 +238,8 @@ def train():
             dt = time.time() - t0
             print(
                 f"step {iter_num:4d} | train loss {train_loss:.4f} | val loss {val_loss:.4f} "
-                f"| lr {lr:.2e} | time {dt:.1f}s"
+                f"| lr {lr:.2e} | time {dt:.1f}s",
+                flush=True,
             )
 
             # Save checkpoint if best
@@ -295,7 +277,9 @@ def train():
             )[0].tolist()
             sample_text = tokenizer.decode(gen_tokens)
             preview = sample_text.replace("\n", " ").strip()
-            print(f"  [Sample]: \"{preview[:90]}...\"\n")
+            # Clean non-ASCII for Windows console safety
+            safe_preview = preview.encode("ascii", errors="replace").decode("ascii")
+            print(f"  [Sample]: \"{safe_preview[:90]}...\"\n", flush=True)
             model.train()
             t0 = time.time()
 
