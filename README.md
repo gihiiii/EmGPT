@@ -1,82 +1,122 @@
-# 🧠 MiniGPT-Em
+# 🎤 EmGPT: ~12.7M Parameter Language Model from Scratch
 
-A ~10M parameter GPT language model built **from scratch** in pure PyTorch, trained on Eminem lyrics.
+A decoder-only autoregressive GPT language model built **from scratch in pure PyTorch** (no Hugging Face transformers, no external tokenization libraries), trained on Eminem's discography.
 
-Feed it a prompt like *"I'm not afraid to..."* and watch it spit bars. 🎤
-
-## Why?
-
-To deeply understand how large language models work — not by using a library, but by building every component from the ground up:
-
-- **BPE Tokenizer** — byte-pair encoding, implemented from scratch
-- **Transformer Architecture** — multi-head causal self-attention, feed-forward networks, residual connections, layer norm
-- **Training Pipeline** — AdamW, cosine LR schedule, gradient clipping, checkpointing
-- **Text Generation** — temperature, top-k, top-p (nucleus) sampling, repetition penalty
-
-## Model Architecture
+Feed it a prompt and watch it spit bars:
 
 ```
-Input → BPE Tokenizer → Token Embeddings + Positional Embeddings
-  → [Transformer Block × 6] → Layer Norm → Linear → Logits
+Prompt: "Look, if you had one shot"
+Output:
+Look, if you had one shot up in a little bit of all get fucked up
+And now, but I'ma be alright with you're gone
+
+[Verse 3]
+I can't want the door and swip into your block
+But it, it's like I'm the brinkin'
+It feels like to go, here I'm sickness...
 ```
 
-| Hyperparameter | Value |
-|---|---|
-| `d_model` | 384 |
-| `n_heads` | 6 |
-| `n_layers` | 6 |
-| `d_ff` | 1536 |
-| `context_length` | 256 |
-| `vocab_size` | ~5,000 |
-| **Total params** | **~10.6M** |
+---
 
-## Project Structure
+## 🏗️ Architecture & Specifications
+
+Implemented from first principles in `model/transformer.py`:
 
 ```
-minigpt-em/
-├── data/               # Lyrics data pipeline
-├── tokenizer/          # BPE tokenizer from scratch
-├── model/              # Transformer architecture
-├── training/           # Training loop & utilities
-├── generate.py         # Text generation
-├── app.py              # Gradio demo UI
-└── notebooks/          # Exploration & experiments
+Input Tokens
+     │
+     ▼
+[Token Embeddings (wte)] + [Learned Positional Embeddings (wpe)]
+     │
+     ▼
+[Transformer Block × 6]
+  ├─ LayerNorm ─► Multi-Head Causal Self-Attention (6 heads) ─► Dropout ─► (+) Residual
+  └─ LayerNorm ─► Feed-Forward MLP (GELU, 4x expansion)      ─► Dropout ─► (+) Residual
+     │
+     ▼
+Final LayerNorm (ln_f)
+     │
+     ▼
+Linear Language Model Head (lm_head) [Weight-Tied to wte]
+     │
+     ▼
+Logits (Softmax + Top-K / Top-P / Temperature / Repetition Penalty)
 ```
 
-## Setup
+| Hyperparameter | Value | Description |
+|---|---|---|
+| `d_model` | 384 | Embedding dimensionality |
+| `n_heads` | 6 | Multi-head attention heads (`d_head = 64`) |
+| `n_layers` | 6 | Stacked transformer decoder blocks |
+| `d_ff` | 1536 | Feed-forward inner expansion (`4 × d_model`) |
+| `context_length` | 256 | Maximum sequence attention window |
+| `vocab_size` | 5,000 | Learned Byte-Pair Encoding (BPE) vocabulary |
+| `tie_weights` | True | Memory & parameter sharing (`wte.weight == lm_head.weight`) |
+| **Total Parameters** | **12,665,856** | **~12.7M parameters** |
 
+---
+
+## 📈 Training Dynamics & Results
+
+- **Dataset:** 99 songs (~486,000 characters / ~132,000 tokens)
+- **Optimizer:** AdamW with weight decay separation (decay on 2D weights, 0.0 on biases & layernorms)
+- **Schedule:** Linear warmup (100 steps) + Cosine decay down to 10% peak learning rate
+- **Gradient Clipping:** Max norm of `1.0`
+
+| Iteration | Train Loss | Val Loss | Learning Rate | Sample Preview |
+|---|---|---|---|---|
+| **Step 0** | 8.5723 | 8.5699 | $5.94 \times 10^{-6}$ | Random uncompressed byte noise |
+| **Step 100** | 5.0537 | 5.4094 | $6.00 \times 10^{-4}$ | Basic words, quotes, punctuation |
+| **Step 400** | 3.8651 | **5.0503 (Best)** | $4.65 \times 10^{-4}$ | Verse structure tags (`[Chorus]`, `[Verse 3]`) |
+| **Step 700** | 2.9722 | 5.0796 | $1.95 \times 10^{-4}$ | Rhyme cadences, Eminem references |
+| **Step 1000** | **2.5279** | 5.2362 | $6.00 \times 10^{-5}$ | Complete multi-line song structure |
+
+---
+
+## 🚀 Quickstart
+
+### 1. Installation
 ```bash
-# Clone the repo
-git clone https://github.com/YOUR_USERNAME/minigpt-em.git
-cd minigpt-em
+git clone https://github.com/gihiiii/EmGPT.git
+cd EmGPT
 
-# Create virtual environment
 python -m venv venv
-source venv/bin/activate  # or venv\Scripts\activate on Windows
+# Windows:
+venv\Scripts\activate
+# Linux/macOS:
+source venv/bin/activate
 
-# Install dependencies
 pip install -r requirements.txt
 ```
 
-## Training
-
+### 2. Generate from Terminal
 ```bash
-# 1. Prepare the data
-python data/prepare.py
-
-# 2. Train the tokenizer
-python tokenizer/bpe.py
-
-# 3. Train the model
-python training/train.py
+python generate.py --prompt "I'm not afraid to" --temperature 0.8 --top-k 40
 ```
 
-## Generate Text
-
+### 3. Launch Interactive Web UI
 ```bash
-python generate.py --prompt "I'm not afraid to" --temperature 0.8 --top_k 40
+python app.py
+```
+Open [http://localhost:7860](http://localhost:7860) in your browser to interactively adjust temperature, top-k, top-p, and repetition penalty sliders with real-time output generation.
+
+---
+
+## 🧪 Testing
+
+Run the automated test suite verifying tokenizer roundtrips, context slicing, and next-token target alignment ($y_t = x_{t+1}$):
+```bash
+python tests/test_tokenizer_and_dataset.py
 ```
 
-## License
+---
 
+## 📚 Study Guide / Interview Prep
+
+An Anki-compatible flashcard deck covering core LLM concepts (BPE tokenization, attention mathematics, training dynamics, sampling strategies, and base vs. instruction-tuned models) is included:
+- Importable deck: [`docs/anki_flashcards.txt`](docs/anki_flashcards.txt)
+
+---
+
+## 📜 License
 MIT
